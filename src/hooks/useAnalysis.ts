@@ -46,11 +46,23 @@ export function useAnalysis() {
       });
 
       if (!analyzeRes.ok) {
-        const err = await analyzeRes.json();
-        throw new Error(err.error || "分析に失敗しました");
+        let errorMessage = "分析に失敗しました";
+        try {
+          const err = await analyzeRes.json();
+          errorMessage = err.error || errorMessage;
+        } catch {
+          const text = await analyzeRes.text().catch(() => "");
+          if (text) errorMessage = text;
+        }
+        throw new Error(errorMessage);
       }
 
-      const analysis: AnalysisResult = await analyzeRes.json();
+      let analysis: AnalysisResult;
+      try {
+        analysis = await analyzeRes.json();
+      } catch {
+        throw new Error("サーバーからの応答を解析できませんでした。もう一度お試しください。");
+      }
       setState((prev) => ({ ...prev, analysis }));
 
       const resolvedTicker = analysis.ticker || ticker;
