@@ -1,8 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { AnalysisResult } from "./types";
 
-const client = new Anthropic();
-
 const ANALYSIS_PROMPT = `あなたは日本企業の決算分析の専門家です。以下の決算説明資料のテキストを分析し、JSON形式で結果を返してください。
 
 必ず以下の構造でJSONを返してください（JSON以外のテキストは含めないでください）:
@@ -61,6 +59,7 @@ export async function analyzeEarnings(
     ? `\n\nユーザーが入力した証券コード: ${userTicker}`
     : "";
 
+  const client = new Anthropic();
   const message = await client.messages.create({
     model: "claude-sonnet-4-5-20250929",
     max_tokens: 4096,
