@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "決算分析サービス",
-  description: "決算説明資料を分析し、株価データ・ニュースと統合的に把握するWebサービス",
+  title: "IPO Analyzer",
+  description: "企業の業績・株価・ニュースをAIで統合分析するWebサービス",
 };
 
 export default function RootLayout({

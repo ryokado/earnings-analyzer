@@ -30,7 +30,7 @@ export default function Home() {
       <header className="mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <BarChart3 className="h-7 w-7 text-blue-600" />
-          決算分析サービス
+          IPO Analyzer
         </h1>
         <p className="text-sm text-gray-500 mt-1">
           企業名・証券コードを入力して、AIによる分析・株価データ・ニュースを統合表示
