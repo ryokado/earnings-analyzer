@@ -1,25 +1,25 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { AnalysisResult } from "./types";
 
-const ANALYSIS_PROMPT = `あなたは日本企業の決算分析の専門家です。以下の決算説明資料のテキストを分析し、JSON形式で結果を返してください。
+const ANALYSIS_PROMPT = `あなたは日本企業の決算・業績分析の専門家です。与えられた企業情報・株価情報・ニュースをもとに分析し、JSON形式で結果を返してください。
 
 必ず以下の構造でJSONを返してください（JSON以外のテキストは含めないでください）:
 
 {
-  "companyName": "会社名",
-  "ticker": "証券コード（4桁の数字。特定できない場合は空文字列）",
-  "fiscalPeriod": "決算期（例: 2024年3月期 第3四半期）",
-  "issueDate": "資料の発行日（YYYY-MM-DD形式、不明の場合は空文字列）",
-  "summary": "決算の要約（3〜7行程度）",
+  "companyName": "会社名（正式名称）",
+  "ticker": "証券コード（4桁の数字）",
+  "fiscalPeriod": "最新の決算期（例: 2025年3月期）",
+  "issueDate": "分析日（今日の日付をYYYY-MM-DD形式で）",
+  "summary": "企業の業績・事業状況の要約（3〜7行程度。直近の業績動向、事業環境、成長戦略などを含む）",
   "positiveFactors": ["ポジティブ要因1", "ポジティブ要因2", ...],
   "negativeFactors": ["ネガティブ要因1", "ネガティブ要因2", ...],
   "watchPoints": ["注視すべき論点1", "注視すべき論点2", ...],
   "kpis": [
     {
       "name": "KPI名（例: 売上高）",
-      "currentValue": "今期の値（単位付き）",
-      "previousValue": "前期の値（単位付き）",
-      "changeRate": "変化率（例: +5.2%）"
+      "currentValue": "直近の値（単位付き。不明の場合は「—」）",
+      "previousValue": "前期の値（単位付き。不明の場合は「—」）",
+      "changeRate": "変化率（例: +5.2%。不明の場合は「—」）"
     }
   ],
   "scenarios": {
@@ -46,27 +46,32 @@ const ANALYSIS_PROMPT = `あなたは日本企業の決算分析の専門家で�
 
 注意事項:
 - ポジティブ要因・ネガティブ要因はそれぞれ3〜5個抽出してください
-- KPIは売上高、営業利益、経常利益、純利益、利益率など主要指標を含めてください
-- シナリオ分析は資料の内容に基づいて、現実的な分析をしてください
+- KPIは売上高、営業利益、経常利益、純利益など主要指標を含めてください（あなたの知識に基づいて）
+- シナリオ分析は現実的な分析をしてください
 - 投資助言ではなく、情報の整理・分析であることを意識してください
-- 証券コードが資料から特定できない場合、会社名から推測しないでください`;
+- 知らない情報は無理に埋めず「—」としてください`;
 
-export async function analyzeEarnings(
-  pdfText: string,
-  userTicker?: string
+export async function analyzeCompany(
+  companyName: string,
+  ticker: string,
+  stockSummary: string,
+  newsSummary: string
 ): Promise<AnalysisResult> {
-  const userContext = userTicker
-    ? `\n\nユーザーが入力した証券コード: ${userTicker}`
-    : "";
-
   const client = new Anthropic();
+
+  const userMessage = `以下の企業について分析してください。
+
+企業名: ${companyName || "（証券コードから特定してください）"}
+証券コード: ${ticker || "（不明）"}
+${stockSummary}${newsSummary}`;
+
   const message = await client.messages.create({
     model: "claude-sonnet-4-5-20250929",
     max_tokens: 4096,
     messages: [
       {
         role: "user",
-        content: `${ANALYSIS_PROMPT}${userContext}\n\n--- 決算説明資料テキスト ---\n${pdfText.slice(0, 100000)}`,
+        content: `${ANALYSIS_PROMPT}\n\n${userMessage}`,
       },
     ],
   });
@@ -81,8 +86,8 @@ export async function analyzeEarnings(
 
   const result: AnalysisResult = JSON.parse(jsonMatch[0]);
 
-  if (userTicker && !result.ticker) {
-    result.ticker = userTicker;
+  if (ticker && !result.ticker) {
+    result.ticker = ticker;
   }
 
   return result;

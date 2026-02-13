@@ -1,7 +1,7 @@
 "use client";
 
 import { useAnalysis } from "@/hooks/useAnalysis";
-import { PdfUploader } from "@/components/upload/PdfUploader";
+import { CompanySearch } from "@/components/upload/PdfUploader";
 import { CompanyInfo } from "@/components/company/CompanyInfo";
 import { StockChart } from "@/components/chart/StockChart";
 import { EarningsSummary } from "@/components/analysis/EarningsSummary";
@@ -33,7 +33,7 @@ export default function Home() {
           決算分析サービス
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          決算説明資料（PDF）をアップロードして、AIによる分析・株価データ・ニュースを統合表示
+          企業名・証券コードを入力して、AIによる分析・株価データ・ニュースを統合表示
         </p>
       </header>
 
@@ -42,9 +42,9 @@ export default function Home() {
         <Disclaimer />
       </div>
 
-      {/* アップロード */}
+      {/* 企業検索 */}
       <div className="mb-8">
-        <PdfUploader onSubmit={analyze} isLoading={isLoading} />
+        <CompanySearch onSubmit={analyze} isLoading={isLoading} />
       </div>
 
       {/* ローディング */}
@@ -54,10 +54,10 @@ export default function Home() {
       {status === "error" && error && (
         <div className="mb-6 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 flex items-center gap-2">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          {error}
+          <span className="flex-1">{error}</span>
           <button
             onClick={reset}
-            className="ml-auto text-red-600 underline text-xs"
+            className="ml-auto text-red-600 underline text-xs shrink-0"
           >
             リセット
           </button>
@@ -127,29 +127,9 @@ export default function Home() {
           {/* データ出典 */}
           <div className="border-t pt-4 mt-8">
             <p className="text-xs text-gray-400">
-              データ出典: PDF分析 — Claude AI (Anthropic) / 株価データ — Yahoo
+              データ出典: AI分析 — Claude AI (Anthropic) / 株価データ — Yahoo
               Finance / ニュース — Google News RSS
             </p>
-            <div className="flex flex-wrap gap-2 mt-2">
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-blue-50 text-blue-700 border border-blue-200">
-                PDF由来
-              </span>
-              <span className="text-xs text-gray-400">
-                = 決算資料から抽出した情報
-              </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700 border border-gray-200 ml-2">
-                外部データ
-              </span>
-              <span className="text-xs text-gray-400">
-                = 外部サービスから取得した情報
-              </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-50 text-purple-700 border border-purple-200 ml-2">
-                AI分析
-              </span>
-              <span className="text-xs text-gray-400">
-                = AIが生成した分析結果
-              </span>
-            </div>
           </div>
 
           {/* フッター ディスクレーマー */}

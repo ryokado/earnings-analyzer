@@ -26,48 +26,45 @@ export function useAnalysis() {
     setState(initialState);
   }, []);
 
-  const analyze = useCallback(async (file: File, ticker?: string) => {
-    setState((prev) => ({
-      ...prev,
-      status: "uploading",
-      error: null,
-    }));
+  const analyze = useCallback(async (companyName: string, ticker: string) => {
+    setState({
+      ...initialState,
+      status: "analyzing",
+    });
 
     try {
-      // Step 1: PDF解析 + Claude分析
-      setState((prev) => ({ ...prev, status: "analyzing" }));
-      const formData = new FormData();
-      formData.append("pdf", file);
-      if (ticker) formData.append("ticker", ticker);
-
+      // Step 1: Claude AI 分析（サーバー側で株価・ニュースも取得）
       const analyzeRes = await fetch("/api/analyze", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyName, ticker }),
       });
 
+      const responseText = await analyzeRes.text();
+
       if (!analyzeRes.ok) {
-        let errorMessage = "分析に失敗しました";
+        let errorMessage = `分析に失敗しました (HTTP ${analyzeRes.status})`;
         try {
-          const err = await analyzeRes.json();
+          const err = JSON.parse(responseText);
           errorMessage = err.error || errorMessage;
         } catch {
-          const text = await analyzeRes.text().catch(() => "");
-          if (text) errorMessage = text;
+          if (responseText) errorMessage = responseText.slice(0, 200);
         }
         throw new Error(errorMessage);
       }
 
       let analysis: AnalysisResult;
       try {
-        analysis = await analyzeRes.json();
+        analysis = JSON.parse(responseText);
       } catch {
-        throw new Error("サーバーからの応答を解析できませんでした。もう一度お試しください。");
+        throw new Error(`サーバーからの応答を解析できませんでした: ${responseText.slice(0, 100)}`);
       }
+
       setState((prev) => ({ ...prev, analysis }));
 
       const resolvedTicker = analysis.ticker || ticker;
 
-      // Step 2 & 3: 株価データ + ニュースを並行取得
+      // Step 2: 株価データ + ニュースを並行取得（チャート・タイムライン用）
       setState((prev) => ({ ...prev, status: "fetching_stock" }));
 
       const [stockData, newsData] = await Promise.all([
@@ -77,7 +74,7 @@ export function useAnalysis() {
           : null,
       ]);
 
-      // Step 4: 株価反応分析
+      // Step 3: 株価反応分析
       let priceReactions: PriceReactionItem[] = [];
       if (stockData && stockData.events.length > 0) {
         priceReactions = calculatePriceReactions(

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { extractTextFromPdf } from "@/lib/pdf-parser";
-import { analyzeEarnings } from "@/lib/claude-analyzer";
+import { analyzeCompany } from "@/lib/claude-analyzer";
+import { getStockData } from "@/lib/stock-data";
+import { fetchNews } from "@/lib/news-fetcher";
 
 export const maxDuration = 60;
-
-const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,46 +14,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const formData = await request.formData();
-    const file = formData.get("pdf") as File | null;
-    const ticker = formData.get("ticker") as string | null;
+    const body = await request.json();
+    const { companyName, ticker } = body as { companyName?: string; ticker?: string };
 
-    if (!file) {
+    if (!companyName && !ticker) {
       return NextResponse.json(
-        { error: "PDFファイルが提供されていません" },
+        { error: "企業名または証券コードを入力してください" },
         { status: 400 }
       );
     }
 
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      return NextResponse.json(
-        { error: "PDFファイルのみ対応しています" },
-        { status: 400 }
-      );
+    // 株価データ取得（証券コードがある場合）
+    let stockSummary = "";
+    if (ticker) {
+      try {
+        const stockData = await getStockData(ticker, 1);
+        if (stockData.candles.length > 0) {
+          const latest = stockData.candles[stockData.candles.length - 1];
+          const oldest = stockData.candles[0];
+          const yearChange = ((latest.close - oldest.close) / oldest.close * 100).toFixed(1);
+          stockSummary = `\n\n--- 直近の株価情報 ---\n最新終値: ${latest.close}円 (${latest.date})\n1年前終値: ${oldest.close}円 (${oldest.date})\n1年間変化率: ${yearChange}%\n直近出来高: ${latest.volume.toLocaleString()}株`;
+        }
+      } catch {
+        // 株価取得に失敗しても分析は続行
+      }
     }
 
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: "ファイルサイズが大きすぎます（上限: 4MB）" },
-        { status: 413 }
-      );
+    // ニュース取得
+    let newsSummary = "";
+    const searchQuery = companyName || ticker || "";
+    if (searchQuery) {
+      try {
+        const articles = await fetchNews(searchQuery, ticker);
+        if (articles.length > 0) {
+          const topArticles = articles.slice(0, 5).map(a => `- ${a.title} (${a.date})`).join("\n");
+          newsSummary = `\n\n--- 最新ニュース ---\n${topArticles}`;
+        }
+      } catch {
+        // ニュース取得に失敗しても分析は続行
+      }
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    const pdfText = await extractTextFromPdf(buffer);
-
-    if (!pdfText || pdfText.trim().length < 50) {
-      return NextResponse.json(
-        { error: "PDFからテキストを抽出できませんでした" },
-        { status: 422 }
-      );
-    }
-
-    const analysis = await analyzeEarnings(
-      pdfText,
-      ticker || undefined
+    const analysis = await analyzeCompany(
+      companyName || "",
+      ticker || "",
+      stockSummary,
+      newsSummary
     );
 
     return NextResponse.json(analysis);
