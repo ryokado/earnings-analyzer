@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { analyzeCompany } from "@/lib/claude-analyzer";
 import { getStockData } from "@/lib/stock-data";
 import { fetchNews } from "@/lib/news-fetcher";
+import { checkRateLimit, incrementRateLimit } from "@/lib/rate-limiter";
 
 export const maxDuration = 60;
 
@@ -11,6 +12,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "ANTHROPIC_API_KEYが設定されていません。Vercelの環境変数に設定してください。" },
         { status: 500 }
+      );
+    }
+
+    // レート制限チェック
+    const { allowed, remaining } = checkRateLimit();
+    if (!allowed) {
+      return NextResponse.json(
+        { error: "本日のAPI利用上限（2回）に達しました。明日以降に再度お試しください。" },
+        { status: 429 }
       );
     }
 
@@ -61,6 +71,9 @@ export async function POST(request: NextRequest) {
       stockSummary,
       newsSummary
     );
+
+    // API呼び出し成功後にカウントをインクリメント
+    incrementRateLimit();
 
     return NextResponse.json(analysis);
   } catch (error) {
